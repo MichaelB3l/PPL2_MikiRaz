@@ -3,13 +3,12 @@
 
 import { map } from "ramda";
 import { isBoolExp, isCExp, isLitExp, isNumExp, isPrimOp, isStrExp, isVarRef,
-         isAppExp, isDefineExp, isIfExp, isLetExp, isProcExp, isClassExp, // <====
+         isAppExp, isDefineExp, isIfExp, isLetExp, isProcExp, isClassExp,
          Binding, VarDecl, CExp, Exp, IfExp, LetExp, ProcExp, Program,
-         parseL3Exp,  DefineExp} from "./L3-ast";
+         parseL3Exp, DefineExp} from "./L3-ast";
 import { applyEnv, makeEmptyEnv, makeExtEnv, Env } from "./L3-env-env";
 import { isClosure, makeClosureEnv, Closure, Value,
-         ClassValue, ObjectValue, makeClassValue, makeObjectValue,
-         isClassValue, isObjectValue, isSymbolSExp } from "./L3-value"; // <====
+         makeClassEnv, makeClassObject, isClass, isClassObject, ClassObject, isSymbolSExp } from "./L3-value"; // <====
 import { applyPrimitive } from "./evalPrimitive";
 import { allT, first, rest, isEmpty, isNonEmptyList } from "../shared/list";
 import { Result, makeOk, makeFailure, bind, mapResult } from "../shared/result";
@@ -28,11 +27,11 @@ const applicativeEval = (exp: CExp, env: Env): Result<Value> =>
     isLitExp(exp) ? makeOk(exp.val) :
     isIfExp(exp) ? evalIf(exp, env) :
     isProcExp(exp) ? evalProc(exp, env) :
+    isClassExp(exp) ? makeOk(makeClassEnv(exp.fields, exp.methods, env)) : // <====
     isLetExp(exp) ? evalLet(exp, env) :
-    isClassExp(exp) ? makeOk(makeClassValue(exp.fields, exp.methods)) : // <====
     isAppExp(exp) ? bind(applicativeEval(exp.rator, env),
                       (proc: Value) =>
-                        bind(mapResult((rand: CExp) => 
+                        bind(mapResult((rand: CExp) =>
                            applicativeEval(rand, env), exp.rands),
                               (args: Value[]) =>
                                  applyProcedure(proc, args))) :
@@ -42,8 +41,8 @@ export const isTrueValue = (x: Value): boolean =>
     ! (x === false);
 
 const evalIf = (exp: IfExp, env: Env): Result<Value> =>
-    bind(applicativeEval(exp.test, env), (test: Value) => 
-            isTrueValue(test) ? applicativeEval(exp.then, env) : 
+    bind(applicativeEval(exp.test, env), (test: Value) =>
+            isTrueValue(test) ? applicativeEval(exp.then, env) :
             applicativeEval(exp.alt, env));
 
 const evalProc = (exp: ProcExp, env: Env): Result<Closure> =>
@@ -54,8 +53,8 @@ const evalProc = (exp: ProcExp, env: Env): Result<Closure> =>
 const applyProcedure = (proc: Value, args: Value[]): Result<Value> =>
     isPrimOp(proc) ? applyPrimitive(proc, args) :
     isClosure(proc) ? applyClosure(proc, args) :
-    isClassValue(proc) ? applyClass(proc, args) :   // <====
-    isObjectValue(proc) ? applyObject(proc, args) : // <====
+    isClass(proc) ? makeOk(makeClassObject(proc, args)) :     // <====
+    isClassObject(proc) ? applyClassObject(proc, args) :      // <====
     makeFailure(`Bad procedure ${format(proc)}`);
 
 const applyClosure = (proc: Closure, args: Value[]): Result<Value> => {
@@ -63,55 +62,57 @@ const applyClosure = (proc: Closure, args: Value[]): Result<Value> => {
     return evalSequence(proc.body, makeExtEnv(vars, args, proc.env));
 }
 
-const applyClass = (cv: ClassValue, args: Value[]): Result<Value> => // <====
-    makeOk(makeObjectValue(map((f: VarDecl) => f.var, cv.fields), args, cv.methods));
-
-const applyObject = (obj: ObjectValue, args: Value[]): Result<Value> => { // <====
-    if (!isSymbolSExp(args[0]))
-        return makeFailure("Object method must be a symbol");
+// <==== To apply a class object, bind field names to their values in an env,
+// evaluate the method in that env, then apply the resulting closure.
+const applyClassObject = (obj: ClassObject, args: Value[]): Result<Value> => {
+    if (args.length === 0 || !isSymbolSExp(args[0]))
+        return makeFailure(`Method call requires a symbol argument`);
     const methodName = args[0].val;
-    const method = obj.methods.find(b => b.var.var === methodName);
+    const method = obj.class.methods.find(b => b.var.var === methodName);
     if (!method)
         return makeFailure(`Unrecognized method: ${methodName}`);
-    const methodEnv = makeExtEnv(obj.fields, obj.vals, makeEmptyEnv());
-    return bind(applicativeEval(method.val, methodEnv),
-        (proc: Value) => applyProcedure(proc, args.slice(1)));
+    const fieldEnv = makeExtEnv(
+        map((f: VarDecl) => f.var, obj.class.fields),
+        obj.fieldVals,
+        obj.class.env  // use class's captured env as base for lexical scoping
+    );
+    return bind(applicativeEval(method.val, fieldEnv), (methodClosure: Value) =>
+        applyClosure(methodClosure as Closure, args.slice(1)));
 }
 
 // Evaluate a sequence of expressions (in a program)
 export const evalSequence = (seq: Exp[], env: Env): Result<Value> =>
-    isNonEmptyList<Exp>(seq) ? evalCExps(first(seq), rest(seq), env) : 
+    isNonEmptyList<Exp>(seq) ? evalCExps(first(seq), rest(seq), env) :
     makeFailure("Empty sequence");
-    
+
 const evalCExps = (first: Exp, rest: Exp[], env: Env): Result<Value> =>
     isDefineExp(first) ? evalDefineExps(first, rest, env) :
     isCExp(first) && isEmpty(rest) ? applicativeEval(first, env) :
     isCExp(first) ? bind(applicativeEval(first, env), _ => evalSequence(rest, env)) :
     first;
-    
+
 // Eval a sequence of expressions when the first exp is a Define.
 // Compute the rhs of the define, extend the env with the new binding
 // then compute the rest of the exps in the new env.
 const evalDefineExps = (def: DefineExp, exps: Exp[], env: Env): Result<Value> =>
-    bind(applicativeEval(def.val, env), (rhs: Value) => 
+    bind(applicativeEval(def.val, env), (rhs: Value) =>
             evalSequence(exps, makeExtEnv([def.var.var], [rhs], env)));
-
 
 // Main program
 export const evalL3program = (program: Program): Result<Value> =>
     evalSequence(program.exps, makeEmptyEnv());
 
 export const evalParse = (s: string): Result<Value> =>
-    bind(p(s), (x) => 
+    bind(p(s), (x) =>
         bind(parseL3Exp(x), (exp: Exp) =>
             evalSequence([exp], makeEmptyEnv())));
 
 // LET: Direct evaluation rule without syntax expansion
 // compute the values, extend the env, eval the body.
 const evalLet = (exp: LetExp, env: Env): Result<Value> => {
-    const vals  = mapResult((v: CExp) => 
+    const vals = mapResult((v: CExp) =>
         applicativeEval(v, env), map((b: Binding) => b.val, exp.bindings));
     const vars = map((b: Binding) => b.var.var, exp.bindings);
-    return bind(vals, (vals: Value[]) => 
+    return bind(vals, (vals: Value[]) =>
         evalSequence(exp.body, makeExtEnv(vars, vals, env)));
 }
