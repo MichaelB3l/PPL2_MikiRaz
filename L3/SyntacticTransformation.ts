@@ -1,4 +1,4 @@
-import { ClassExp, ProcExp, Exp, Program, CExp, Binding,
+import { ClassExp, ProcExp, Exp, Program, CExp, Binding, makeProgram,
          isClassExp, isProcExp, isIfExp, isLetExp, isAppExp, isDefineExp, isProgram, isLitExp, isAtomicExp,
          makeIfExp, makeAppExp, makePrimOp, makeLitExp, makeVarRef, makeVarDecl, makeProcExp,
          makeBinding, makeLetExp, makeDefineExp } from "./L3-ast";
@@ -32,7 +32,7 @@ Signature: transform(AST)
 Type: [Exp | Program] => Result<Exp | Program>
 */
 export const transform = (exp: Exp | Program): Result<Exp | Program> =>                  //<====
-    isProgram(exp) ? mapv(mapResult(transformExp, exp.exps), (exps: Exp[]) => ({...exp, exps})) :
+    isProgram(exp) ? mapv(mapResult(transformExp, exp.exps), (exps: Exp[]) => makeProgram(exps)) :
     transformExp(exp);
 
 const transformExp = (exp: Exp): Result<Exp> =>

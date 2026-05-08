@@ -62,7 +62,7 @@ export type AppExp = {tag: "AppExp"; rator: CExp; rands: CExp[]; }
 // L2
 export type IfExp = {tag: "IfExp"; test: CExp; then: CExp; alt: CExp; }
 export type ProcExp = {tag: "ProcExp"; args: VarDecl[], body: CExp[]; }
-export type Binding = {tag: "Binding"; var: VarDecl; val: CExp; }
+export type Binding = {tag: "Binding"; var: VarDecl; val: CExp; }  
 export type LetExp = {tag: "LetExp"; bindings: Binding[]; body: CExp[]; }
 // L3
 export type LitExp = {tag: "LitExp"; val: SExpValue; }
@@ -327,7 +327,7 @@ const unparseProcExp = (pe: ProcExp): string =>
 const unparseLetExp = (le: LetExp) : string => 
     `(let (${map((b: Binding) => `(${b.var.var} ${unparseL3(b.val)})`, le.bindings).join(" ")}) ${unparseLExps(le.body)})`
 
-const unparseClassExp = (ce: ClassExp): string => // <====
+const unparseClassExp = (ce: ClassExp): string =>                                       // <====
     `(class (${map((f: VarDecl) => f.var, ce.fields).join(" ")}) (${map((b: Binding) =>
         `(${b.var.var} ${unparseL3(b.val)})`, ce.methods).join(" ")}))`;
 

@@ -27,32 +27,32 @@ export const makeClosureEnv = (params: VarDecl[], body: CExp[], env: Env): Closu
     ({tag: "Closure", params: params, body: body, env: env});
 export const isClosure = (x: any): x is Closure => x.tag === "Closure";
 
-// <==== Adding Class value and Object value
-export type Class = {
-    tag: "Class";
+
+export type Class = {         //<========
+    tag: "Class";          
     fields: VarDecl[];
     methods: Binding[];
     env: Env;
 }
 
-// <====
-export type ClassObject = {
+
+export type ClassObject = {            //<========
     tag: "Object";
     class: Class;
     fieldVals: Value[];
 }
 
-// <==== class and object helper constructors
-export const makeClass = (fields: VarDecl[], methods: Binding[]): Class =>
-    ({tag: "Class", fields: fields, methods: methods, env: makeEmptyEnv()});
-export const makeClassEnv = (fields: VarDecl[], methods: Binding[], env: Env): Class =>
-    ({tag: "Class", fields: fields, methods: methods, env: env});
-export const makeClassObject = (cls: Class, fieldVals: Value[]): ClassObject =>
-    ({tag: "Object", class: cls, fieldVals: fieldVals});
-export const isClass = (x: any): x is Class => x.tag === "Class";
-export const isClassObject = (x: any): x is ClassObject => x.tag === "Object";
 
-// ========================================================
+export const makeClass = (fields: VarDecl[], methods: Binding[]): Class => // <====
+    ({tag: "Class", fields: fields, methods: methods, env: makeEmptyEnv()});
+export const makeClassEnv = (fields: VarDecl[], methods: Binding[], env: Env): Class => // <====
+    ({tag: "Class", fields: fields, methods: methods, env: env});
+export const makeClassObject = (cls: Class, fieldVals: Value[]): ClassObject => // <====
+    ({tag: "Object", class: cls, fieldVals: fieldVals});
+export const isClass = (x: any): x is Class => x.tag === "Class"; // <====
+export const isClassObject = (x: any): x is ClassObject => x.tag === "Object"; // <====
+
+
 // SExp
 export type CompoundSExp = {
     tag: "CompoundSexp";
