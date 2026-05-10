@@ -62,9 +62,7 @@ const applyClosure = (proc: Closure, args: Value[]): Result<Value> => {
     return evalSequence(proc.body, makeExtEnv(vars, args, proc.env));
 }
 
-// <==== To apply a class object, bind field names to their values in an env,
-// evaluate the method in that env, then apply the resulting closure.
-const applyClassObject = (obj: ClassObject, args: Value[]): Result<Value> => {
+const applyClassObject = (obj: ClassObject, args: Value[]): Result<Value> => { // <====
     if (args.length === 0 || !isSymbolSExp(args[0]))
         return makeFailure(`Method call requires a symbol argument`);
     const methodName = args[0].val;
@@ -74,7 +72,7 @@ const applyClassObject = (obj: ClassObject, args: Value[]): Result<Value> => {
     const fieldEnv = makeExtEnv(
         map((f: VarDecl) => f.var, obj.class.fields),
         obj.fieldVals,
-        obj.class.env  // use class's captured env as base for lexical scoping
+        obj.class.env
     );
     return bind(applicativeEval(method.val, fieldEnv), (methodClosure: Value) =>
         applyClosure(methodClosure as Closure, args.slice(1)));

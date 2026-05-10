@@ -71,9 +71,7 @@ const valueToLitExp = (v: Value): NumExp | BoolExp | StrExp | LitExp | PrimOp | 
     isClosure(v) ? makeProcExp(v.params, v.body) :
     makeLitExp(v);
 
-// <==== To apply a class object, substitute field values for field names in the method body
-// then evaluate the method body.
-const applyClassObject = (obj: ClassObject, args: Value[], env: Env): Result<Value> => {
+const applyClassObject = (obj: ClassObject, args: Value[], env: Env): Result<Value> => { // <====
     if (args.length === 0 || !isSymbolSExp(args[0]))
         return makeFailure(`Method call requires a symbol argument`);
     const methodName = args[0].val;
